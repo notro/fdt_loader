@@ -29,6 +29,7 @@
 #include <linux/of_address.h>
 #include <linux/of_fdt.h>
 #include <linux/of_platform.h>
+#include <linux/proc_fs.h>
 #include <linux/slab.h>
 
 #define MODNAME "fdt_loader"
@@ -188,6 +189,35 @@ static void fdt_loader_setup_irq(void)
 
 
 /*
+ *  /proc/device-tree2
+ *
+ *  Is there a way to get struct proc_dir_entry of /proc/device-tree ?
+ */
+
+#ifdef CONFIG_PROC_DEVICETREE
+static struct proc_dir_entry *proc_device_tree;
+
+static void proc_device_tree_reinit(void)
+{
+	struct device_node *root;
+
+	proc_device_tree = proc_mkdir("device-tree2", NULL);
+	if (proc_device_tree == NULL)
+		return;
+	root = of_find_node_by_path("/");
+	if (root == NULL) {
+		pr_debug(MODNAME ": /proc/device-tree: can't find root\n");
+		return;
+	}
+	proc_device_tree_add_node(root, proc_device_tree);
+	of_node_put(root);
+}
+#else
+static void proc_device_tree_reinit(void) { }
+#endif
+
+
+/*
  *  Module
  */
 
@@ -213,6 +243,7 @@ static void fdt_loader_fw_callback(const struct firmware *fw, void *context)
 		pr_err(MODNAME ": of_platform_populate() failed and returned %d\n", rc);
 		return;
 	}
+	proc_device_tree_reinit();
 	pr_info(MODNAME ": Device Tree loaded: %s\n", dtb);
 }
 
